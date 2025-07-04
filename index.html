@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conexão Central</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root {
+            --background-color: #f0f2f5;
+            --card-background: #ffffff;
+            --text-color: #1c1e21;
+            --subtle-text-color: #65676b;
+            --primary-color: #1877f2;
+            --primary-hover-color: #166fe5;
+            --border-color: #dddfe2;
+            --shadow-color: rgba(0, 0, 0, 0.05);
+            --gray-color: #ccd0d5;
+            --danger-color: #e74c3c;
+            --danger-hover-color: #c0392b;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 10px;
+            color: var(--text-color);
+        }
+
+        #app, #auth-container {
+            width: 100%;
+            max-width: 100%;
+            background: transparent;
+        }
+        
+        h1.main-title {
+            text-align: center;
+            color: var(--text-color);
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+        }
+        
+        #auth-container {
+            max-width: 400px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: var(--card-background);
+            border-radius: 12px;
+        }
+        #auth-container input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        #auth-container button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+        #auth-container a {
+            color: var(--primary-color);
+            cursor: pointer;
+            text-align: center;
+            display: block;
+        }
+        .hidden { display: none; }
+
+        #loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+            color: var(--subtle-text-color);
+        }
+
+        .top-controls {
+            padding: 5px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .top-controls button, #logout-btn {
+            flex-grow: 1;
+            max-width: 200px;
+            padding: 10px 12px;
+            border: none;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        #logout-btn {
+            background-color: var(--danger-color);
+        }
+
+        .platform-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 12px;
+            margin-bottom: 15px;
+            background-color: var(--card-background);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        .platform-tag {
+            color: white;
+            padding: 4px 5px 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .action-button {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        .action-button:hover { background: rgba(255,255,255,0.4); }
+        .action-button svg { width: 12px; height: 12px; fill: white; }
+        
+        .grid-container {
+            background-color: var(--card-background);
+            border-radius: 12px;
+            overflow-x: auto;
+            box-shadow: 0 4px 12px var(--shadow-color);
+            border: 1px solid var(--border-color);
+        }
+
+        .grid { display: grid; min-width: 500px; }
+        .grid > div { padding: 12px 10px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #f0f0f0; }
+        .grid > .last-row { border-bottom: none; }
+        .grid > .header { font-weight: 700; font-size: 0.9rem; background-color: #f7f7f7; position: sticky; top: 0; z-index: 10; text-align: left; justify-content: flex-start; border-bottom: 1px solid var(--border-color); }
+
+        .email-info-cell { text-align: left; font-size: 0.9rem; line-height: 1.3; word-break: break-all; justify-content: space-between; }
+        .email-info-cell .email-text { flex-grow: 1; }
+        .email-info-cell span { font-weight: 500; color: var(--subtle-text-color); }
+        .email-actions { display: flex; gap: 5px; }
+        .email-actions .action-button { background: var(--gray-color); }
+        .email-actions .action-button:hover { background: #b6b9be; }
+        .email-actions .action-button svg { fill: var(--text-color); }
+
+        .checkbox-cell { gap: 4px; }
+        .checkbox-separator { width: 1px; height: 24px; background-color: var(--border-color); }
+        .custom-checkbox { position: relative; min-width: 24px; height: 24px; background-color: var(--gray-color); border-radius: 6px; cursor: pointer; transition: background-color 0.3s ease; }
+        .custom-checkbox.checked { background-color: var(--platform-color); }
+        .custom-checkbox .tooltiptext { visibility: hidden; width: max-content; max-width: 200px; background-color: #333; color: #fff; text-align: center; border-radius: 6px; padding: 8px; position: absolute; z-index: 20; bottom: 140%; left: 50%; transform: translateX(-50%); opacity: 0; transition: opacity 0.3s; font-size: 0.8rem; }
+        .custom-checkbox:hover .tooltiptext { visibility: visible; opacity: 1; }
+
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); padding-top: 60px; }
+        .modal-content { background-color: var(--card-background); margin: 5% auto; padding: 25px; border: 1px solid var(--border-color); width: 90%; max-width: 400px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); display: flex; flex-direction: column; }
+        .modal-content h2 { margin-top: 0; font-size: 1.2rem; }
+        .modal-content p { margin: 10px 0 20px; line-height: 1.5; }
+        .modal-content input { padding: 12px; margin-bottom: 15px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1rem; }
+        .modal-content button { width: 100%; padding: 12px; border:none; background-color: var(--primary-color); color:white; border-radius: 8px; font-size: 1rem; cursor: pointer; }
+        .close { color: #aaa; align-self: flex-end; font-size: 28px; font-weight: bold; line-height: 1; cursor: pointer; }
+        .modal-buttons { display: flex; gap: 10px; }
+        .modal-buttons button { flex-grow: 1; }
+        .danger-btn { background-color: var(--danger-color) !important; }
+        .danger-btn:hover { background-color: var(--danger-hover-color) !important; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-container">
+        <div id="login-view">
+            <h1 class="main-title">Login</h1>
+            <input type="email" id="login-email" placeholder="Seu e-mail">
+            <input type="password" id="login-password" placeholder="Sua senha">
+            <button onclick="handleLogin()">Entrar</button>
+            <a onclick="toggleAuthView()">Não tem uma conta? Registe-se</a>
+        </div>
+        <div id="signup-view" class="hidden">
+            <h1 class="main-title">Registar</h1>
+            <input type="email" id="signup-email" placeholder="Seu e-mail">
+            <input type="password" id="signup-password" placeholder="Sua senha">
+            <button onclick="handleSignup()">Registar</button>
+            <a onclick="toggleAuthView()">Já tem uma conta? Faça login</a>
+        </div>
+    </div>
+
+    <div id="app" class="hidden"></div>
+    <div id="loading" class="hidden"><p>A carregar...</p></div>
+
+    <!-- Modals -->
+    <div id="edit-account-modal" class="modal"><div class="modal-content"><span class="close" onclick="closeModal('edit-account-modal')">&times;</span><h2 id="account-modal-title">Adicionar Conta</h2><input type="hidden" id="edit-account-index"><input type="email" id="edit-account-address" placeholder="Digite o e-mail"><input type="password" id="edit-account-password" placeholder="Digite a senha"><button onclick="saveAccount()">Guardar</button></div></div>
+    <div id="edit-platform-modal" class="modal"><div class="modal-content"><span class="close" onclick="closeModal('edit-platform-modal')">&times;</span><h2 id="platform-modal-title">Adicionar Plataforma</h2><input type="hidden" id="edit-platform-index"><input type="text" id="edit-platform-name" placeholder="Nome da plataforma"><button onclick="savePlatform()">Guardar</button></div></div>
+    <div id="confirm-delete-modal" class="modal"><div class="modal-content"><h2 id="confirm-modal-title">Confirmar Exclusão</h2><p id="confirm-modal-text"></p><div class="modal-buttons"><button id="confirm-delete-btn" class="danger-btn">Excluir</button><button onclick="closeModal('confirm-delete-modal')">Cancelar</button></div></div></div>
+
+    <script>
+        // --- ICONS ---
+        const editIconSVG = `<svg viewBox="0 0 512 512"><path d="M471.6 21.7c-21.9-21.9-57.3-21.9-79.2 0L362.3 51.7l97.9 97.9 30.1-30.1c21.9-21.9 21.9-57.3 0-79.2L471.6 21.7zm-299.2 220c-6.1 6.1-10.8 13.6-13.5 21.9l-29.6 88.8c-2.9 8.6-.6 18.1 5.8 24.6s15.9 8.7 24.6 5.8l88.8-29.6c8.2-2.7 15.7-7.4 21.9-13.5L437.7 172.3 339.7 74.3 172.4 241.7zM96 64C43 64 0 107 0 160V416c0 53 43 96 96 96H352c53 0 96-43 96-96V320c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7-14.3 32-32 32H96c-17.7 0-32-14.3-32-32V160c0-17.7 14.3-32 32-32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H96z"/></svg>`;
+        const deleteIconSVG = `<svg viewBox="0 0 448 512"><path d="M135.2 17.7L128 32H32C14.3 32 0 46.3 0 64S14.3 96 32 96H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H320l-7.2-14.3C307.4 6.8 296.3 0 284.2 0H163.8c-12.1 0-23.2 6.8-28.6 17.7zM416 128H32L53.2 467c1.6 25.3 22.6 45 47.9 45H346.9c25.3 0 46.3-19.7 47.9-45L416 128z"/></svg>`;
+
+        // ==================================================
+        // CONEXÃO COM O SUPABASE
+        // ==================================================
+        // ▼▼▼ INSIRA AS SUAS CHAVES DO SUPABASE AQUI ▼▼▼
+        const SUPABASE_URL = 'https://fuftpvfhregprypgghel.supabase.co';
+        const SUPABASE_ANON_KEY = 'fuftpvfhregprypgghel';
+        // ▲▲▲ INSIRA AS SUAS CHAVES DO SUPABASE AQUI ▲▲▲
+
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- Variáveis de estado da aplicação ---
+        let accounts = [];
+        let platforms = [];
+        let statuses = [];
+        let user = null;
+
+        // --- LÓGICA DE AUTENTICAÇÃO ---
+        
+        function toggleAuthView() {
+            document.getElementById('login-view').classList.toggle('hidden');
+            document.getElementById('signup-view').classList.toggle('hidden');
+        }
+
+        async function handleSignup() {
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const { error } = await db.auth.signUp({ email, password });
+            if (error) {
+                alert('Erro ao registar: ' + error.message);
+            } else {
+                alert('Registo efetuado! Por favor, verifique o seu e-mail para confirmar a conta.');
+            }
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const { error } = await db.auth.signInWithPassword({ email, password });
+            if (error) alert('Erro ao fazer login: ' + error.message);
+        }
+
+        async function handleLogout() {
+            await db.auth.signOut();
+            window.location.reload();
+        }
+
+        // --- LÓGICA PRINCIPAL DA APLICAÇÃO ---
+
+        async function loadData() {
+            document.getElementById('loading').classList.remove('hidden');
+            
+            // Carregar plataformas
+            const { data: platformData, error: platformError } = await db.from('platforms').select('*').eq('user_id', user.id);
+            if (platformError) console.error('Erro a carregar plataformas:', platformError);
+            else platforms = platformData;
+
+            // Carregar contas
+            const { data: accountData, error: accountError } = await db.from('accounts').select('*').eq('user_id', user.id);
+            if (accountError) console.error('Erro a carregar contas:', accountError);
+            else accounts = accountData;
+            
+            // Carregar status
+            const { data: statusData, error: statusError } = await db.from('status').select('*').eq('user_id', user.id);
+            if (statusError) console.error('Erro a carregar status:', statusError);
+            else statuses = statusData;
+
+            document.getElementById('loading').classList.add('hidden');
+            renderUI();
+        }
+
+        function renderUI() {
+            const app = document.getElementById('app');
+            app.innerHTML = '';
+            app.classList.remove('hidden');
+
+            const mainTitle = document.createElement('h1');
+            mainTitle.className = 'main-title';
+            mainTitle.textContent = 'Conexão Central';
+            app.appendChild(mainTitle);
+
+            const topControls = document.createElement('div');
+            topControls.className = 'top-controls';
+            topControls.innerHTML = `<button onclick="showAddAccountModal()">Adicionar Conta</button><button onclick="showAddPlatformModal()">Adicionar Plataforma</button><button id="logout-btn" onclick="handleLogout()">Sair</button>`;
+            app.appendChild(topControls);
+
+            const platformLegend = document.createElement('div');
+            platformLegend.className = 'platform-legend';
+            if (platforms.length === 0) {
+                platformLegend.textContent = 'Adicione uma plataforma para começar.';
+                platformLegend.style.justifyContent = 'center';
+            } else {
+                platforms.forEach((platform) => {
+                    const tag = document.createElement('div');
+                    tag.className = 'platform-tag';
+                    tag.style.backgroundColor = platform.color;
+                    tag.innerHTML = `<span>${platform.name}</span><button class="action-button" onclick="showEditPlatformModal(${platform.id})">${editIconSVG}</button><button class="action-button" onclick="deletePlatform(${platform.id})">${deleteIconSVG}</button>`;
+                    platformLegend.appendChild(tag);
+                });
+            }
+            app.appendChild(platformLegend);
+
+            const gridContainer = document.createElement('div');
+            gridContainer.className = 'grid-container';
+            const grid = document.createElement('div');
+            grid.className = 'grid';
+            grid.style.gridTemplateColumns = `minmax(200px, 1.5fr) repeat(${platforms.length}, minmax(80px, 1fr))`;
+
+            const headerCell = document.createElement('div');
+            headerCell.className = 'header';
+            headerCell.textContent = 'Conta / Senha';
+            grid.appendChild(headerCell);
+            platforms.forEach(() => { grid.appendChild(document.createElement('div')).className = 'header'; });
+
+            if (accounts.length === 0) {
+                const p = document.createElement('p');
+                p.textContent = 'Adicione uma conta.';
+                p.style.textAlign = 'center';
+                p.style.padding = '20px';
+                gridContainer.appendChild(p);
+            } else {
+                 accounts.forEach((account, accountIndex) => {
+                    const isLastAccount = accountIndex === accounts.length - 1;
+                    const emailInfoCell = document.createElement('div');
+                    emailInfoCell.className = 'email-info-cell' + (isLastAccount ? ' last-row' : '');
+                    emailInfoCell.innerHTML = `<div class="email-text">${account.address}<br><span>${account.password}</span></div><div class="email-actions"><button class="action-button" onclick="showEditAccountModal(${account.id})">${editIconSVG}</button><button class="action-button" onclick="deleteAccount(${account.id})">${deleteIconSVG}</button></div>`;
+                    grid.appendChild(emailInfoCell);
+
+                    platforms.forEach((platform) => {
+                        const checkboxCell = document.createElement('div');
+                        checkboxCell.className = 'checkbox-cell' + (isLastAccount ? ' last-row' : '');
+                        checkboxCell.appendChild(createCheckbox(account.id, platform.id, 'registered'));
+                        const separator = document.createElement('div');
+                        separator.className = 'checkbox-separator';
+                        checkboxCell.appendChild(separator);
+                        checkboxCell.appendChild(createCheckbox(account.id, platform.id, 'used'));
+                        grid.appendChild(checkboxCell);
+                    });
+                });
+            }
+            gridContainer.appendChild(grid);
+            app.appendChild(gridContainer);
+        }
+
+        function createCheckbox(accountId, platformId, type) {
+            const checkbox = document.createElement('div');
+            checkbox.className = 'custom-checkbox';
+            const status = statuses.find(s => s.account_id === accountId && s.platform_id === platformId);
+            const isChecked = status ? status[type] : false;
+            const platform = platforms.find(p => p.id === platformId);
+            
+            if (isChecked && platform) {
+                checkbox.classList.add('checked');
+                checkbox.style.setProperty('--platform-color', platform.color);
+            }
+
+            const tooltip = document.createElement('span');
+            tooltip.className = 'tooltiptext';
+            if (type === 'registered') {
+                tooltip.textContent = isChecked ? `Cadastrado na ${platform.name}` : `Não cadastrado na ${platform.name}`;
+            } else {
+                tooltip.textContent = isChecked ? `Plataforma usada em ${platform.name}` : `Plataforma não usada em ${platform.name}`;
+            }
+            checkbox.appendChild(tooltip);
+
+            checkbox.onclick = () => toggleCheckbox(accountId, platformId, type, isChecked);
+            return checkbox;
+        }
+
+        async function toggleCheckbox(accountId, platformId, type, isChecked) {
+            const updateData = {
+                account_id: accountId,
+                platform_id: platformId,
+                user_id: user.id,
+                [type]: !isChecked
+            };
+            const { error } = await db.from('status').upsert(updateData, { onConflict: 'account_id, platform_id' });
+            if (error) console.error('Erro ao atualizar status:', error);
+            else loadData();
+        }
+        
+        // --- LÓGICA DOS MODAIS ---
+        function showAddAccountModal() {
+            document.getElementById('account-modal-title').textContent = 'Adicionar Nova Conta';
+            document.getElementById('edit-account-index').value = '';
+            document.getElementById('edit-account-address').value = '';
+            document.getElementById('edit-account-password').value = '';
+            document.getElementById('edit-account-modal').style.display = 'block';
+        }
+
+        function showEditAccountModal(accountId) {
+            const account = accounts.find(a => a.id === accountId);
+            if (!account) return;
+            document.getElementById('account-modal-title').textContent = 'Editar Conta';
+            document.getElementById('edit-account-index').value = accountId;
+            document.getElementById('edit-account-address').value = account.address;
+            document.getElementById('edit-account-password').value = account.password;
+            document.getElementById('edit-account-modal').style.display = 'block';
+        }
+
+        async function saveAccount() {
+            const address = document.getElementById('edit-account-address').value.trim();
+            const password = document.getElementById('edit-account-password').value.trim();
+            const accountId = document.getElementById('edit-account-index').value;
+
+            if (!address || !password) { alert('Por favor, preencha ambos os campos.'); return; }
+
+            let error;
+            if (accountId) { // Editing
+                ({ error } = await db.from('accounts').update({ address, password }).eq('id', accountId));
+            } else { // Adding
+                ({ error } = await db.from('accounts').insert({ address, password, user_id: user.id }));
+            }
+            if (error) console.error('Erro ao guardar conta:', error);
+            else {
+                loadData();
+                closeModal('edit-account-modal');
+            }
+        }
+        
+        function showAddPlatformModal() {
+            document.getElementById('platform-modal-title').textContent = 'Adicionar Nova Plataforma';
+            document.getElementById('edit-platform-index').value = '';
+            document.getElementById('edit-platform-name').value = '';
+            document.getElementById('edit-platform-modal').style.display = 'block';
+        }
+
+        function showEditPlatformModal(platformId) {
+            const platform = platforms.find(p => p.id === platformId);
+            if (!platform) return;
+            document.getElementById('platform-modal-title').textContent = 'Editar Plataforma';
+            document.getElementById('edit-platform-index').value = platformId;
+            document.getElementById('edit-platform-name').value = platform.name;
+            document.getElementById('edit-platform-modal').style.display = 'block';
+        }
+
+        async function savePlatform() {
+            const name = document.getElementById('edit-platform-name').value.trim();
+            const platformId = document.getElementById('edit-platform-index').value;
+            if (!name) { alert('Por favor, digite o nome da plataforma.'); return; }
+
+            let error;
+            if (platformId) { // Editing
+                ({ error } = await db.from('platforms').update({ name }).eq('id', platformId));
+            } else { // Adding
+                ({ error } = await db.from('platforms').insert({ name, color: getRandomColor(), user_id: user.id }));
+            }
+            if (error) console.error('Erro ao guardar plataforma:', error);
+            else {
+                loadData();
+                closeModal('edit-platform-modal');
+            }
+        }
+
+        // --- LÓGICA DE EXCLUSÃO ---
+        function deleteAccount(id) { showConfirmDeleteModal('account', id); }
+        function deletePlatform(id) { showConfirmDeleteModal('platform', id); }
+
+        function showConfirmDeleteModal(type, id) {
+            const modalText = document.getElementById('confirm-modal-text');
+            const confirmBtn = document.getElementById('confirm-delete-btn');
+            
+            if (type === 'account') {
+                const account = accounts.find(a => a.id === id);
+                modalText.textContent = `Tem a certeza que deseja excluir a conta "${account.address}"?`;
+            } else {
+                const platform = platforms.find(p => p.id === id);
+                modalText.textContent = `Tem a certeza que deseja excluir a plataforma "${platform.name}"?`;
+            }
+            
+            confirmBtn.onclick = () => {
+                if (type === 'account') performDeleteAccount(id);
+                else performDeletePlatform(id);
+            };
+            document.getElementById('confirm-delete-modal').style.display = 'block';
+        }
+
+        async function performDeleteAccount(id) {
+            await db.from('status').delete().eq('account_id', id);
+            await db.from('accounts').delete().eq('id', id);
+            loadData();
+            closeModal('confirm-delete-modal');
+        }
+
+        async function performDeletePlatform(id) {
+            await db.from('status').delete().eq('platform_id', id);
+            await db.from('platforms').delete().eq('id', id);
+            loadData();
+            closeModal('confirm-delete-modal');
+        }
+        
+        function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
+        function getRandomColor() {
+            const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+            const usedColors = platforms.map(p => p.color);
+            const availableColors = colors.filter(c => !usedColors.includes(c));
+            if (availableColors.length > 0) return availableColors[Math.floor(Math.random() * availableColors.length)];
+            return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        }
+        window.onclick = function(event) { if (event.target.classList.contains('modal')) closeModal(event.target.id); }
+
+        // --- INICIALIZAÇÃO ---
+        db.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                user = session.user;
+                document.getElementById('auth-container').classList.add('hidden');
+                loadData();
+            } else {
+                user = null;
+                document.getElementById('auth-container').classList.remove('hidden');
+                document.getElementById('app').classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
