@@ -26,8 +26,9 @@
             font-family: 'Inter', sans-serif;
             background-color: var(--background-color);
             margin: 0;
-            padding: 10px;
+            padding: 0 10px 10px 10px;
             color: var(--text-color);
+            padding-top: 70px !important;
         }
 
         #app, #auth-container {
@@ -84,11 +85,21 @@
         }
 
         .top-controls {
-            padding: 5px;
-            margin-bottom: 15px;
-            display: flex;
-            gap: 10px;
-            justify-content: center;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            width: 100vw !important;
+            z-index: 9999 !important;
+            background-color: var(--background-color) !important;
+            padding: 15px 10px !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: 10px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            box-sizing: border-box !important;
         }
         .top-controls button, #logout-btn {
             flex-grow: 1;
@@ -153,7 +164,7 @@
         }
 
         .grid { display: grid; min-width: 500px; }
-        .grid > div { padding: 12px 10px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #f0f0f0; }
+        .grid > div {padding: 3px 4px;display: flex;align-items: center;justify-content: center;border-bottom: 1px solid #f0f0f0;}
         .grid > .last-row { border-bottom: none; }
         .grid > .header { font-weight: 700; font-size: 0.9rem; background-color: #f7f7f7; position: sticky; top: 0; z-index: 10; text-align: left; justify-content: flex-start; border-bottom: 1px solid var(--border-color); }
 
@@ -204,6 +215,14 @@
         </div>
     </div>
 
+    <div id="top-bar-container" class="hidden">
+        <div class="top-controls">
+            <button onclick="showAddAccountModal()">Adicionar Conta</button>
+            <button onclick="showImportAccountsModal()">Importar Contas</button>
+            <button onclick="showAddPlatformModal()">Adicionar Plataforma</button>
+            <button id="logout-btn" onclick="handleLogout()">Sair</button>
+        </div>
+    </div>
     <div id="app" class="hidden"></div>
     <div id="loading" class="hidden"><p>A carregar...</p></div>
 
@@ -211,6 +230,15 @@
     <div id="edit-account-modal" class="modal"><div class="modal-content"><span class="close" onclick="closeModal('edit-account-modal')">&times;</span><h2 id="account-modal-title">Adicionar Conta</h2><input type="hidden" id="edit-account-index"><input type="email" id="edit-account-address" placeholder="Digite o e-mail"><input type="password" id="edit-account-password" placeholder="Digite a senha"><button onclick="saveAccount()">Guardar</button></div></div>
     <div id="edit-platform-modal" class="modal"><div class="modal-content"><span class="close" onclick="closeModal('edit-platform-modal')">&times;</span><h2 id="platform-modal-title">Adicionar Plataforma</h2><input type="hidden" id="edit-platform-index"><input type="text" id="edit-platform-name" placeholder="Nome da plataforma"><button onclick="savePlatform()">Guardar</button></div></div>
     <div id="confirm-delete-modal" class="modal"><div class="modal-content"><h2 id="confirm-modal-title">Confirmar Exclusão</h2><p id="confirm-modal-text"></p><div class="modal-buttons"><button id="confirm-delete-btn" class="danger-btn">Excluir</button><button onclick="closeModal('confirm-delete-modal')">Cancelar</button></div></div></div>
+    <div id="import-accounts-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('import-accounts-modal')">&times;</span>
+            <h2>Importar Contas em Massa</h2>
+            <p>Cole a lista de contas abaixo. Use o formato: <strong>email,senha</strong> (uma conta por linha).</p>
+            <textarea id="import-accounts-list" rows="10" style="width: 100%; box-sizing: border-box; margin-bottom: 15px; border-radius: 6px; border: 1px solid var(--border-color); padding: 8px; font-family: monospace;"></textarea>
+            <button onclick="handleImportAccounts()">Importar</button>
+        </div>
+    </div>
 
     <script>
         // --- ICONS ---
@@ -298,11 +326,6 @@
             mainTitle.textContent = 'Central de Contas';
             app.appendChild(mainTitle);
 
-            const topControls = document.createElement('div');
-            topControls.className = 'top-controls';
-            topControls.innerHTML = `<button onclick="showAddAccountModal()">Adicionar Conta</button><button onclick="showAddPlatformModal()">Adicionar Plataforma</button><button id="logout-btn" onclick="handleLogout()">Sair</button>`;
-            app.appendChild(topControls);
-
             const platformLegend = document.createElement('div');
             platformLegend.className = 'platform-legend';
             if (platforms.length === 0) {
@@ -323,7 +346,7 @@
             gridContainer.className = 'grid-container';
             const grid = document.createElement('div');
             grid.className = 'grid';
-            grid.style.gridTemplateColumns = `minmax(200px, 1.5fr) repeat(${platforms.length}, minmax(80px, 1fr))`;
+            grid.style.gridTemplateColumns = `minmax(200px, 1.5fr) repeat(${platforms.length}, minmax(80px, 0fr))`;
 
             const headerCell = document.createElement('div');
             headerCell.className = 'header';
@@ -405,6 +428,11 @@
             document.getElementById('edit-account-address').value = '';
             document.getElementById('edit-account-password').value = '';
             document.getElementById('edit-account-modal').style.display = 'block';
+        }
+
+        function showImportAccountsModal() {
+            document.getElementById('import-accounts-list').value = '';
+            document.getElementById('import-accounts-modal').style.display = 'block';
         }
 
         function showEditAccountModal(accountId) {
@@ -510,24 +538,65 @@
         
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
         function getRandomColor() {
-            const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
-            const usedColors = platforms.map(p => p.color);
-            const availableColors = colors.filter(c => !usedColors.includes(c));
-            if (availableColors.length > 0) return availableColors[Math.floor(Math.random() * availableColors.length)];
-            return '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
         }
         window.onclick = function(event) { if (event.target.classList.contains('modal')) closeModal(event.target.id); }
 
-        // --- INICIALIZAÇÃO ---
-        db.auth.onAuthStateChange((_event, session) => {
-            if (session?.user) {
+        async function handleImportAccounts() {
+            const list = document.getElementById('import-accounts-list').value.trim();
+            if (!list) {
+                alert('A lista de contas está vazia.');
+                return;
+            }
+
+            const lines = list.split('\n').filter(line => line.trim() !== '');
+            const newAccounts = lines.map(line => {
+                const parts = line.split(',');
+                if (parts.length !== 2) return null;
+                const address = parts[0].trim();
+                const password = parts[1].trim();
+                if (!address || !password) return null;
+                return { address, password, user_id: user.id };
+            }).filter(Boolean); // Filtra as linhas nulas/mal formatadas
+
+            if (newAccounts.length === 0) {
+                alert('Nenhuma conta válida encontrada. Verifique o formato (email,senha) e tente novamente.');
+                return;
+            }
+
+            const { error } = await db.from('accounts').insert(newAccounts);
+
+            if (error) {
+                console.error('Erro ao importar contas:', error);
+                alert('Ocorreu um erro ao importar as contas. Verifique a consola para mais detalhes.');
+            } else {
+                alert(`${newAccounts.length} contas importadas com sucesso!`);
+                closeModal('import-accounts-modal');
+                loadData();
+            }
+        }
+
+        // --- INICIALIZAÇÃO E AUTENTICAÇÃO ---
+        db.auth.onAuthStateChange((event, session) => {
+            const topBarContainer = document.getElementById('top-bar-container');
+            if (session) {
                 user = session.user;
                 document.getElementById('auth-container').classList.add('hidden');
+                topBarContainer.classList.remove('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                document.body.style.paddingTop = topBarContainer.offsetHeight + 'px';
                 loadData();
             } else {
                 user = null;
-                document.getElementById('auth-container').classList.remove('hidden');
                 document.getElementById('app').classList.add('hidden');
+                topBarContainer.classList.add('hidden');
+                document.getElementById('auth-container').classList.remove('hidden');
+                document.body.style.paddingTop = '';
             }
         });
     </script>
